@@ -13,3 +13,5 @@ reports/*.csv
 .env
 
 *.log
+
+email_config.py

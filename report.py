@@ -1,6 +1,9 @@
 from pathlib import Path
 from datetime import datetime
 
+import openpyxl
+from openpyxl.styles import Font, PatternFill, Alignment
+from openpyxl.utils import get_column_letter
 import pandas as pd
 
 
@@ -9,17 +12,12 @@ class Report:
     def __init__(self):
 
         self.folder = Path("reports")
-
         self.folder.mkdir(exist_ok=True)
-
-    # --------------------------------------------------
 
     def save(self, df):
 
         if df.empty:
-
-            print("No report to save.")
-
+            print("No report.")
             return None
 
         df = df.sort_values(
@@ -27,44 +25,96 @@ class Report:
             ascending=False
         ).reset_index(drop=True)
 
-        df.insert(0, "Rank", range(1, len(df) + 1))
+        df.insert(0, "Rank", range(1, len(df)+1))
 
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-
-        excel = self.folder / f"QDIS_Report_{timestamp}.xlsx"
-
-        csv = self.folder / f"QDIS_Report_{timestamp}.csv"
+        filename = self.folder / (
+            "QDIS_Report_"
+            + datetime.now().strftime("%Y%m%d_%H%M%S")
+            + ".xlsx"
+        )
 
         with pd.ExcelWriter(
-            excel,
+            filename,
             engine="openpyxl"
         ) as writer:
 
             df.to_excel(
                 writer,
-                index=False,
-                sheet_name="QDIS"
+                sheet_name="Ranking",
+                index=False
             )
 
-            ws = writer.sheets["QDIS"]
+            ws = writer.sheets["Ranking"]
 
-            for column in ws.columns:
+            # Header
 
-                length = max(
+            fill = PatternFill(
+                fill_type="solid",
+                fgColor="1F4E78"
+            )
+
+            for cell in ws[1]:
+
+                cell.font = Font(
+                    bold=True,
+                    color="FFFFFF"
+                )
+
+                cell.fill = fill
+
+                cell.alignment = Alignment(
+                    horizontal="center"
+                )
+
+            # Column widths
+
+            for col in ws.columns:
+
+                width = max(
                     len(str(c.value))
-                    if c.value is not None
-                    else 0
-                    for c in column
+                    if c.value is not None else 0
+                    for c in col
                 )
 
                 ws.column_dimensions[
-                    column[0].column_letter
-                ].width = min(length + 2, 40)
+                    get_column_letter(col[0].column)
+                ].width = min(width + 3, 35)
 
-        df.to_csv(csv, index=False)
+            # Freeze header
 
-        print(f"\nExcel : {excel}")
+            ws.freeze_panes = "A2"
 
-        print(f"CSV   : {csv}")
+            # Auto filter
 
-        return excel
+            ws.auto_filter.ref = ws.dimensions
+
+            # Conditional colours
+
+            for r in range(2, ws.max_row + 1):
+
+                rating = ws[f"G{r}"].value
+
+                if rating == "STRONG BUY":
+
+                    colour = "00B050"
+
+                elif rating == "BUY":
+
+                    colour = "92D050"
+
+                elif rating == "WATCH":
+
+                    colour = "FFD966"
+
+                else:
+
+                    colour = "F4CCCC"
+
+                ws[f"G{r}"].fill = PatternFill(
+                    fill_type="solid",
+                    fgColor=colour
+                )
+
+        print(f"\nReport saved : {filename}")
+
+        return filename
