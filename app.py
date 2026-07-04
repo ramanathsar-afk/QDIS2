@@ -4,6 +4,8 @@ from indicators import Indicators
 from fundamentals import Fundamentals
 from scanner import Scanner
 from report import Report
+from emailer import Emailer
+import email_config
 
 from config import WATCHLIST
 
@@ -113,6 +115,8 @@ def main():
 
     report_writer = Report()
 
+    emailer = Emailer()
+
     symbols = load_watchlist()
 
     print(f"\nProcessing {len(symbols)} stocks\n")
@@ -211,7 +215,29 @@ def main():
     print("\n")
     print(report)
 
-    report_writer.save(report)
+    report_file = report_writer.save(report)
+
+    if report_file:
+
+        emailer.send(
+
+            smtp_server=email_config.SMTP_SERVER,
+
+            smtp_port=email_config.SMTP_PORT,
+
+            username=email_config.USERNAME,
+
+            password=email_config.PASSWORD,
+
+            recipient=email_config.RECIPIENT,
+
+            subject=email_config.SUBJECT,
+
+            body=email_config.BODY,
+
+            attachment=report_file,
+
+        )
 
     db.close()
 
